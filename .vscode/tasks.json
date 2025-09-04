@@ -1,0 +1,29 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-debug",
+            "type": "shell",
+            "command": "C:/msys64/ucrt64.exe make build=debug",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "build-release",
+            "type": "shell",
+            "command": "C:/msys64/ucrt64.exe make build=release",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "make-clean",
+            "type": "shell",
+            "command": "C:/msys64/ucrt64.exe make clean",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        }
+    ]
+}

@@ -20,15 +20,14 @@
 ##---------------------------------------------------------------------------------
 #                           Requirements to build
 #
-# To build this programm you will need: make, g++, libstdc++, lwinpthread
+# To build this programm you will need: make, g++, libstdc++, lwinpthread, bzip2
 # You need to download MSYS2 (https://www.msys2.org/)
 # And install them via UCRT64 (C:\msys64\ucrt64.exe):
-# pacman -Syu
 # pacman -S make
 # pacman -S mingw-w64-ucrt-x86_64-toolchain
 #
-# You will also need freetype, libpng, harfbuzz, brotli, bzip2, graphite2, SDL2
-# pacman -S mingw-w64-ucrt-x86_64-LIBNAME
+# You will also need freetype, libpng, harfbuzz, brotli, graphite2, SDL2
+# pacman -S mingw-w64-ucrt-x86_64-freetype mingw-w64-ucrt-x86_64-libpng mingw-w64-ucrt-x86_64-harfbuzz mingw-w64-ucrt-x86_64-brotli mingw-w64-ucrt-x86_64-graphite2 mingw-w64-ucrt-x86_64-SDL2
 # 
 #----------------------------------------------------------------------------------
 ##           If you prefer to use console or don't want to use VS Code
@@ -56,6 +55,7 @@ SRC_DIR       = ./
 BUILD_DIR     = ./build
 IMGUI_DIR     = ./imgui
 BACKENDS_DIR  = $(IMGUI_DIR)/backends
+IMPLOT_DIR    = $(IMGUI_DIR)/implot
 FREETYPE_DIR2 = $(IMGUI_DIR)/freetype
 SDL2_DIR      = C:/msys64/ucrt64/include/SDL2
 FREETYPE_DIR  = C:/msys64/ucrt64/include/freetype2
@@ -71,6 +71,7 @@ OBJS    := $(SOURCES:%=$(BUILD_DIR)/$(build)_%.o)
 CXXFLAGS = -std=c++17 \
            -I$(IMGUI_DIR) \
            -I$(BACKENDS_DIR) \
+           -I$(IMPLOT_DIR) \
            -I$(FREETYPE_DIR2) \
            -I$(SDL2_DIR) \
            -I$(FREETYPE_DIR)
@@ -137,6 +138,9 @@ $(BUILD_DIR)/$(build)_%.o:$(IMGUI_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 $(BUILD_DIR)/$(build)_%.o:$(BACKENDS_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(BUILD_DIR)/$(build)_%.o:$(IMPLOT_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 $(BUILD_DIR)/$(build)_%.o:$(FREETYPE_DIR2)/%.cpp

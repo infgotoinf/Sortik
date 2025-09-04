@@ -7,6 +7,7 @@
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_sdl2.h"
 #include "imgui/backends/imgui_impl_sdlrenderer2.h"
+#include "imgui/implot/implot.h"
 #include <stdio.h>
 #include <SDL.h>
 #ifdef _WIN32
@@ -23,23 +24,26 @@
 #include <stdio.h>
 #include <string>
 
-//#define ENABLE_CUSOM_FONT // Enable for custom font
+//#define ENABLE_CUSOM_FONT     // Enable for custom font
+//#define RUN_WITH_TRANSPARENCY // Enable to make main window transparrent
+#define DEVELOPER_OPTIONS     // Disable this for release
+
 #ifdef ENABLE_CUSOM_FONT
 #include "fonts/ProggyVector.h"
 #endif
 
 
-#define DEVELOPER_OPTIONS // Disable this for release
-
-
-
-void renderWithTransparency(SDL_Renderer* renderer, ImGuiIO& io, int transparent_colorref)
+void renderWindow(SDL_Renderer* renderer, ImGuiIO& io, int transparent_colorref)
 {
     ImGui::Render();
     SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+#ifdef RUN_WITH_TRANSPARENCY
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, GetRValue(transparent_colorref), GetGValue(transparent_colorref), GetBValue(transparent_colorref), SDL_ALPHA_OPAQUE);
-	SDL_RenderFillRect(renderer, NULL);
+    SDL_RenderFillRect(renderer, NULL);
+#else
+    SDL_SetRenderDrawColor(renderer, (Uint8)(155), (Uint8)(155), (Uint8)(155), (Uint8)(255));
+#endif
     SDL_RenderClear(renderer);
     ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
     SDL_RenderPresent(renderer);
@@ -93,18 +97,10 @@ int main(int, char**)
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
-    // Setup scaling
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.ScaleAllSizes(main_scale);
-    style.FontScaleDpi = main_scale;
 
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
@@ -112,7 +108,7 @@ int main(int, char**)
 
     // Windows transparency setup
     static const COLORREF transparent_colorref = RGB(255, 0, 255);
-#ifdef _WIN32
+#if defined(_WIN32) && defined(RUN_WITH_TRANSPARENCY)
     SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
     SDL_GetWindowWMInfo(window, &wmInfo);
@@ -121,6 +117,18 @@ int main(int, char**)
 		fprintf(stderr, "SetWindowLong Error\n");
     if(!SetLayeredWindowAttributes(handle, transparent_colorref, 0, 1))
 		fprintf(stderr, "SetLayeredWindowAttributes Error\n");
+#endif
+
+
+#ifdef ENABLE_CUSOM_FONT
+    // Load Fonts
+    ImVector<ImWchar> ranges;
+    ImFontGlyphRangesBuilder builder;
+    builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+    builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+    builder.BuildRanges(&ranges);
+    // io.Fonts->AddFontFromFileTTF("..\\imgui\\misc\\fonts\\ProggyVector.ttf", 16.0f, nullptr, ranges.Data);
+    io.Fonts->AddFontFromMemoryCompressedTTF(ProggyVector_compressed_data, ProggyVector_compressed_size, 16.0f, nullptr, ranges.Data);
 #endif
 
 //---------------------------------------------------------------------------------
@@ -167,25 +175,32 @@ int main(int, char**)
     style.GrabRounding   = 3.0f;
     style.FrameRounding  = 3.0f;
 
+    style.ScaleAllSizes(main_scale);
+    style.FontScaleDpi = main_scale;
+
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
 
-    #ifdef ENABLE_CUSOM_FONT
-    // Load Fonts
-    ImVector<ImWchar> ranges;
-    ImFontGlyphRangesBuilder builder;
-    builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
-    builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
-    builder.BuildRanges(&ranges);
-    // io.Fonts->AddFontFromFileTTF("..\\imgui\\misc\\fonts\\ProggyVector.ttf", 16.0f, nullptr, ranges.Data);
-    io.Fonts->AddFontFromMemoryCompressedTTF(ProggyVector_compressed_data, ProggyVector_compressed_size, 16.0f, nullptr, ranges.Data);
-    #endif
+#ifdef RUN_WITH_TRANSPARENCY
+    // Making app to take entire screen
+    SDL_DisplayMode dm;
+    SDL_GetCurrentDisplayMode(0, &dm);
+    int display_width = dm.w;
+    int display_height = dm.h; 
+    SDL_SetWindowSize(window, display_width, display_height);
+    SDL_SetWindowPosition(window, 0, 0);
+#endif
 
     // Our state
     bool show_demo_window = true;
-    bool show_shellsort_window = false;
-    bool show_radixsort_window = false;
+    bool show_impot_demo_window = true;
+    bool show_shellsort = false;
+    bool show_radixsort = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+
+    int num = 1000;
+    int numbers[11] = {1,2,3,4,5,6,7,8,9,10,11};
 
 //=================================================================================
 //      START OF THE MAIN LOOP
@@ -219,24 +234,27 @@ int main(int, char**)
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        #ifdef DEVELOPER_OPTIONS
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+    #ifdef DEVELOPER_OPTIONS
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
-        #endif
+        if (show_impot_demo_window)
+            ImPlot::ShowDemoWindow(&show_impot_demo_window);
+    #endif
 
 //---------------------------------------------------------------------------------
 //          MAIN WINDOW
 //---------------------------------------------------------------------------------
 
         {
-            ImGui::Begin("Sortik");                          // Create a window called "Hello, world!" and append into it.
+            ImGui::Begin("Sortik");
 
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Shellsort Window", &show_shellsort_window);
-            ImGui::Checkbox("Radix Sort Window", &show_radixsort_window);
+            ImGui::Button("Shuffle");
+            ImGui::SliderInt("Number of numbers", &num, 100, 10000, nullptr, ImGuiSliderFlags_NoRoundToFormat);
+            ImGui::Checkbox("Shellsort", &show_shellsort);
+            ImGui::Checkbox("Radix Sort", &show_radixsort);
             #ifdef DEVELOPER_OPTIONS
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
+            ImGui::Checkbox("Demo Window", &show_demo_window);
+            ImGui::Checkbox("Implot demo Window", &show_impot_demo_window);
             #endif
 
             ImGui::End();
@@ -245,36 +263,33 @@ int main(int, char**)
 //---------------------------------------------------------------------------------
 //          SORT WINDOWS
 //---------------------------------------------------------------------------------
-        if (show_shellsort_window)
+        if (show_shellsort || show_radixsort)
         {
-            ImGui::Begin("Shellsort Window", &show_shellsort_window);
-            ImGui::Text("Hello from another window!");
-            ImGui::End();
-        }
-        if (show_radixsort_window)
-        {
-            ImGui::Begin("Radix Sort Window", &show_radixsort_window);
-            ImGui::Text("Hello from another window!");
-            ImGui::End();
-        }
+            ImGui::Begin("Sort Window", nullptr, ImGuiWindowFlags_NoScrollbar);
 
+            ImVec2 pivot_window_size = ImVec2(ImGui::GetWindowSize().x - 15, ImGui::GetWindowSize().y - 35);
+            if (ImPlot::BeginPlot("My Plot", pivot_window_size)) {
+                if (show_shellsort)
+                    ImPlot::PlotBars("Shellsort", numbers, num, 1, 0, 0, 0, 1);
+                if (show_radixsort)
+                    ImPlot::PlotBars("Radix Sort", numbers, num, 1, 0, 0, 0, 1);
+                ImPlot::EndPlot();
+            }
+
+            ImGui::End();
+        }
+  
 //---------------------------------------------------------------------------------
 //          RENDERING
-//---------------------------------------------------------------------------------
-        
-        renderWithTransparency(renderer, io, transparent_colorref);        
+//---------------------------------------------------------------------------------   
 
-        ImGui::Render();
-        SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
-        SDL_SetRenderDrawColor(renderer, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
-        SDL_RenderClear(renderer);
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
-        SDL_RenderPresent(renderer);
+        renderWindow(renderer, io, transparent_colorref);     
     }
 
     // Cleanup
     ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
 
     SDL_DestroyRenderer(renderer);

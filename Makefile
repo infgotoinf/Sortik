@@ -26,8 +26,8 @@
 # pacman -S make
 # pacman -S mingw-w64-ucrt-x86_64-toolchain
 #
-# You will also need freetype, libpng, harfbuzz, brotli, graphite2, SDL2
-# pacman -S mingw-w64-ucrt-x86_64-freetype mingw-w64-ucrt-x86_64-libpng mingw-w64-ucrt-x86_64-harfbuzz mingw-w64-ucrt-x86_64-brotli mingw-w64-ucrt-x86_64-graphite2 mingw-w64-ucrt-x86_64-SDL2
+# You will also need freetype, libpng, harfbuzz, brotli, graphite2, SDL2, vulkan
+# pacman -S mingw-w64-ucrt-x86_64-freetype mingw-w64-ucrt-x86_64-libpng mingw-w64-ucrt-x86_64-harfbuzz mingw-w64-ucrt-x86_64-brotli mingw-w64-ucrt-x86_64-graphite2 mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-vulkan-devel
 # 
 #----------------------------------------------------------------------------------
 ##           If you prefer to use console or don't want to use VS Code
@@ -58,6 +58,7 @@ BACKENDS_DIR  = $(IMGUI_DIR)/backends
 IMPLOT_DIR    = $(IMGUI_DIR)/implot
 FREETYPE_DIR2 = $(IMGUI_DIR)/freetype
 SDL2_DIR      = C:/msys64/ucrt64/include/SDL2
+VULKAN_DIR    = C:/msys64/ucrt64/include/vulkan
 FREETYPE_DIR  = C:/msys64/ucrt64/include/freetype2
 
 
@@ -74,6 +75,7 @@ CXXFLAGS = -std=c++17 \
            -I$(IMPLOT_DIR) \
            -I$(FREETYPE_DIR2) \
            -I$(SDL2_DIR) \
+           -I$(VULKAN_DIR) \
            -I$(FREETYPE_DIR)
 
 RELEASE_CXXFLAGS = -g0 -O3 -w -DNDEBUG -flto -fno-rtti -fno-exceptions \
@@ -87,9 +89,9 @@ RELEASE_CXXFLAGS = -g0 -O3 -w -DNDEBUG -flto -fno-rtti -fno-exceptions \
 
 DEBUG_CXXFLAGS = -g -g3 -O0 -Wall -Wextra -pedantic
 
-LDFLAGS = -lmingw32 -lSDL2main -lSDL2 -lfreetype -lpng -lharfbuzz -lgraphite2 \
-          -ldwrite -lbrotlidec -lbrotlicommon -lbz2 -lz -lusp10 -lrpcrt4 \
-          -Wl,--dynamicbase -Wl,--nxcompat \
+LDFLAGS = -lmingw32 -lSDL2main -lSDL2 /ucrt64/lib/libvulkan-1.dll.a -lfreetype -lpng -lharfbuzz \
+          -lgraphite2 -ldwrite -lbrotlidec -lbrotlicommon -lbz2 -lz -lusp10 \
+          -lrpcrt4 -Wl,--dynamicbase -Wl,--nxcompat \
           -static-libstdc++ -static-libgcc -static -lwinpthread -lsetupapi -lhid \
           -lwinmm -limm32 -lshell32 -lole32 -loleaut32 -luuid -lversion -msse2
 

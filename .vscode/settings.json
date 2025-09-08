@@ -69,6 +69,8 @@
         "thread": "cpp",
         "codecvt": "cpp",
         "regex": "cpp",
-        "fstream": "cpp"
+        "fstream": "cpp",
+        "queue": "cpp",
+        "future": "cpp"
     }
 }

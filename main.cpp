@@ -44,7 +44,8 @@ static VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
 
 //#define ENABLE_CUSOM_FONT        // Enable for custom font
 //#define RENDER_WITH_TRANSPARENCY // Enable to make main window transparrent
-#define DEVELOPER_OPTIONS        // Disable this for release
+//#define DEVELOPER_OPTIONS        // Disable this for release
+#define SHOW_FPS
 
 #ifdef ENABLE_CUSOM_FONT
 #include "fonts/ProggyVector.h"
@@ -54,21 +55,31 @@ static VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
 //      FUNCTIONS
 //=================================================================================
 
-void updateIntArray(int*& array, const int number)
+void updateIntArray(const int number, int*& array)
 {
     array = new int[number];
     for (int i = 0; i < number; i++) array[i] = i;
 }
 
-void suffleIntArray(int* array, const int number)
+void copyPasteArray(const int number, int*& copy, int*& paste)
 {
-    std::random_device dev;
-    std::mt19937 rnd(dev());
-    int randdist = number - 1;
-    std::uniform_int_distribution<unsigned> dist(0, randdist);
+    paste = new int[number];
+    for (int i = 0; i < number; i++) {
+        paste[i] = copy[i];
+    }
+}
 
-    for (int i = 0; i < number; i++)
-        std::swap(array[i], array[dist(rnd)]);
+std::random_device dev;
+std::mt19937 rnd(dev());
+
+void shuffleIntArray(const int number, int*& array)
+{
+    for (int i = number - 1; i > 0; i--)
+    {
+        std::uniform_int_distribution<int> dist(0, i);
+        int j = dist(rnd);
+        std::swap(array[i], array[j]);
+    }
 }
 
 bool verifyArrayIsSorted(int*& array, const int number)
@@ -86,9 +97,13 @@ bool verifyArrayIsSorted(int*& array, const int number)
 //---------------------------------------------------------------------------------
 
 std::mutex numbers_mutex;
+
+//------BOGO-----------------------------------------------------------------------
+std::mutex bogo_numbers_mutex;
 std::future<void> bogo_future;
 std::atomic<int> bogo_iterations(0);
 std::atomic<double> bogo_sort_time_ms(0.0);
+std::chrono::time_point<std::chrono::high_resolution_clock> bogo_start_time;
 
 void bogoSort(int* array, const int number, std::atomic<int>& iter_count, std::atomic<double>& sort_time_ms)
 {
@@ -98,13 +113,139 @@ void bogoSort(int* array, const int number, std::atomic<int>& iter_count, std::a
     while (true) {
         iter_count++;
         {
-            std::lock_guard<std::mutex> lock(numbers_mutex);
+            std::lock_guard<std::mutex> lock(bogo_numbers_mutex);
             if (verifyArrayIsSorted(array, number))
                 break;
-            suffleIntArray(array, number);
+            shuffleIntArray(number, array);
         }
-        std::this_thread::sleep_for(std::chrono::microseconds(0));
+        std::this_thread::yield();
     }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    sort_time_ms = duration.count();
+}
+
+//------SHELL----------------------------------------------------------------------
+std::mutex shell_numbers_mutex;
+std::future<void> shell_future;
+std::atomic<int> shell_operations(0);
+std::atomic<double> shell_sort_time_ms(0.0);
+std::chrono::time_point<std::chrono::high_resolution_clock> shell_start_time;
+
+void shellSort(int* array, const int number, std::atomic<int>& oper_count, std::atomic<double>& sort_time_ms)
+{
+    oper_count = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    // Start with a big gap, then reduce the gap
+    for (int gap = number/2; gap > 0; gap /= 2)
+    {
+        // Do a gapped insertion sort for this gap size.
+        // The first gap elements a[0..gap-1] are already in gapped order
+        // keep adding one more element until the entire array is
+        // gap sorted 
+        for (int i = gap; i < number; i += 1)
+        {
+            // add a[i] to the elements that have been gap sorted
+            // save a[i] in temp and make a hole at position i
+            int temp = array[i];
+
+            // shift earlier gap-sorted elements up until the correct 
+            // location for a[i] is found
+            int j;
+            
+            for (j = i; j >= gap && array[j - gap] > temp; j -= gap)
+            {
+                array[j] = array[j - gap];
+                oper_count++;
+            }
+
+            //  put temp (the original a[i]) in its correct location
+            array[j] = temp;
+            oper_count++;
+            
+            std::this_thread::yield();
+        }
+    }
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    sort_time_ms = duration.count();
+}
+
+//------RADIX----------------------------------------------------------------------
+std::mutex radix_numbers_mutex;
+std::future<void> radix_future;
+std::atomic<int> radix_operations(0);
+std::atomic<double> radix_sort_time_ms(0.0);
+std::chrono::time_point<std::chrono::high_resolution_clock> radix_start_time;
+
+int getMax(int* arr, int n)
+{
+    int mx = arr[0];
+    for (int i = 1; i < n; i++) {
+        if (arr[i] > mx)
+            mx = arr[i];
+        radix_operations++;
+    }
+    return mx;
+}
+
+// A function to do counting sort of arr[]
+// according to the digit
+// represented by exp.
+void countSort(int* arr, int n, int exp, std::atomic<int>& oper_count)
+{
+    // Use dynamic allocation instead of VLA (Variable Length Array)
+    int* output = new int[n];
+    int count[10] = { 0 };
+
+    // Store count of occurrences
+    for (int i = 0; i < n; i++) {
+        count[(arr[i] / exp) % 10]++;
+        oper_count++;
+    }
+
+    // Change count[i] to contain actual position
+    for (int i = 1; i < 10; i++) {
+        count[i] += count[i - 1];
+        oper_count++;
+    }
+
+    // Build the output array
+    for (int i = n - 1; i >= 0; i--) {
+        output[count[(arr[i] / exp) % 10] - 1] = arr[i];
+        count[(arr[i] / exp) % 10]--;
+        oper_count++;
+    }
+
+    // Copy the output array to arr[]
+    for (int i = 0; i < n; i++) {
+        arr[i] = output[i];
+        oper_count++;
+    }
+    
+    delete[] output;
+}
+
+void radixSort(int* arr, int n, std::atomic<int>& oper_count, std::atomic<double>& sort_time_ms)
+{
+    oper_count = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    // Find the maximum number to know number of digits
+    int m = getMax(arr, n);
+
+    // Do counting sort for every digit
+    for (int exp = 1; m / exp > 0; exp *= 10) {
+        {
+            std::lock_guard<std::mutex> lock(radix_numbers_mutex);
+            countSort(arr, n, exp, oper_count);
+        }
+
+        std::this_thread::yield();
+    }
+
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
     sort_time_ms = duration.count();
@@ -112,6 +253,28 @@ void bogoSort(int* array, const int number, std::atomic<int>& iter_count, std::a
 
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
+
+std::vector<int> downsampleArray(const int* data, int original_size) {
+    int max_points = 100000;
+    std::vector<int> downsampled;
+    if (original_size <= max_points) {
+        // No need to downsample
+        downsampled.assign(data, data + original_size);
+        return downsampled;
+    }
+    
+    // Calculate sampling rate
+    int step = original_size / max_points;
+    if (step < 1) step = 1;
+    
+    // Sample the data
+    downsampled.reserve(max_points);
+    for (int i = 0; i < original_size; i += step) {
+        downsampled.push_back(data[i]);
+    }
+    
+    return downsampled;
+}
 
 #ifdef DEVELOPER_OPTIONS
 std::string debug_array(const int* array, const int number)
@@ -461,7 +624,7 @@ int main(int, char**)
     // Create window with Vulkan graphics context
     float main_scale = ImGui_ImplSDL2_GetContentScaleForDisplay(0);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    SDL_Window* window = SDL_CreateWindow("Dear ImGui SDL2+Vulkan example", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, (int)(1280 * main_scale), (int)(720 * main_scale), window_flags);
+    SDL_Window* window = SDL_CreateWindow("Sortik", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, (int)(1280 * main_scale), (int)(720 * main_scale), window_flags);
     if (window == nullptr)
     {
         printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
@@ -583,7 +746,7 @@ int main(int, char**)
 
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-    ImVec4* plot_colors = ImPlot::GetStyle().Colors;
+    //ImVec4* plot_colors = ImPlot::GetStyle().Colors;
     
     // plot_colors[ImPlotCol_Line]          = IMPLOT_AUTO_COL;
     // plot_colors[ImPlotCol_Fill]          = IMPLOT_AUTO_COL;
@@ -659,7 +822,13 @@ int main(int, char**)
 
     int number_of_numbers = 1000;
     int* numbers;
-    updateIntArray(numbers, number_of_numbers);
+    int* shell_numbers;
+    int* radix_numbers;
+    int* bogo_numbers;
+    updateIntArray(number_of_numbers, numbers);
+    copyPasteArray(number_of_numbers, numbers, shell_numbers);
+    copyPasteArray(number_of_numbers, numbers, radix_numbers);
+    copyPasteArray(number_of_numbers, numbers, bogo_numbers);
     
 #ifdef RENDER_WITH_TRANSPARENCY
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 0.00f);
@@ -721,48 +890,136 @@ int main(int, char**)
 //          MAIN WINDOW
 //---------------------------------------------------------------------------------
         {
-            ImGui::Begin("Sortik");
+            ImGui::Begin("Sortik", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
             if (ImGui::Button("Shuffle"))
             {
-                suffleIntArray(numbers, number_of_numbers);
+                shuffleIntArray(number_of_numbers, numbers);
+                copyPasteArray(number_of_numbers, numbers, shell_numbers);
+                copyPasteArray(number_of_numbers, numbers, radix_numbers);
+                copyPasteArray(number_of_numbers, numbers, bogo_numbers);
             }
             ImGui::SameLine();
             if (ImGui::Button("Beggin Sort"))
             {
-                // if (show_shellsort_window);
-                // if (show_radixsort_window);
+                if (show_shellsort_window)
+                    if (!shell_future.valid() || shell_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+                    {
+                        std::lock_guard<std::mutex> lock(shell_numbers_mutex);
+                        shell_operations = 0;
+                        shell_sort_time_ms = 0.0;
+                        shell_start_time = std::chrono::high_resolution_clock::now();
+                        shell_future = std::async(std::launch::async, shellSort, 
+                                                shell_numbers, number_of_numbers, 
+                                                std::ref(shell_operations), 
+                                                std::ref(shell_sort_time_ms));
+                    }
+                if (show_radixsort_window)
+                    if (!radix_future.valid() || radix_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+                    {
+                        std::lock_guard<std::mutex> lock(radix_numbers_mutex);
+                        shuffleIntArray(number_of_numbers, radix_numbers);
+                        radix_operations = 0;
+                        radix_sort_time_ms = 0.0;
+                        radix_start_time = std::chrono::high_resolution_clock::now();
+                        radix_future = std::async(std::launch::async, radixSort, 
+                                                radix_numbers, number_of_numbers, 
+                                                std::ref(radix_operations), 
+                                                std::ref(radix_sort_time_ms));
+                    }
                 if (show_bogosort_window)
                     if (!bogo_future.valid() || bogo_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
                     {
-                        std::lock_guard<std::mutex> lock(numbers_mutex);
-                        bogo_future = std::async(std::launch::async, bogoSort, numbers, number_of_numbers, std::ref(bogo_iterations), std::ref(bogo_sort_time_ms));
+                        std::lock_guard<std::mutex> lock(bogo_numbers_mutex);
+                        bogo_iterations = 0;
+                        bogo_sort_time_ms = 0.0;
+                        bogo_start_time = std::chrono::high_resolution_clock::now();
+                        bogo_future = std::async(std::launch::async, bogoSort, 
+                                                bogo_numbers, number_of_numbers, 
+                                                std::ref(bogo_iterations), 
+                                                std::ref(bogo_sort_time_ms));
                     }
 
             }
 
             if (ImGui::SliderInt("Number of numbers", &number_of_numbers, 100, 10000, nullptr, ImGuiSliderFlags_NoRoundToFormat))
             {
-                updateIntArray(numbers, number_of_numbers);
+                updateIntArray(number_of_numbers, numbers);
+                copyPasteArray(number_of_numbers, numbers, shell_numbers);
+                copyPasteArray(number_of_numbers, numbers, radix_numbers);
+                copyPasteArray(number_of_numbers, numbers, bogo_numbers);
             }
-            ImGui::Checkbox("Shellsort", &show_shellsort_window);
-            ImGui::SameLine();
-            ImGui::Checkbox("Radix Sort", &show_radixsort_window);
-            ImGui::SameLine();
-            ImGui::Checkbox("Bogosort", &show_bogosort_window);
-            ImGui::Text("Speed:");
-            ImGui::Text("Speed:");
-            ImGui::Text("Time:");
-            double time_seconds = bogo_sort_time_ms.load() / 1000.0;
-            std::string bogo_text = "Time: " + std::to_string(bogo_sort_time_ms.load()) + ("Number of iterations: " + std::to_string(bogo_iterations));
-            ImGui::Text(bogo_text.c_str());
-            ImGui::Checkbox("Render", &render_charts);
+
+            ImGui::SeparatorText("Shell Sort");
+            ImGui::Checkbox("Do", &show_shellsort_window);
+            if (shell_future.valid())
+            {
+                 auto status = shell_future.wait_for(std::chrono::seconds(0));
+                 int operations = shell_operations.load();
+
+                if (status == std::future_status::ready)
+                {
+                    double time_seconds = shell_sort_time_ms.load() / 1000.0;
+                    ImGui::Text("Time: %.2f sec, Operations: %d", time_seconds, operations);
+                }
+                else
+                {
+                    auto current_time = std::chrono::high_resolution_clock::now();
+                    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - shell_start_time).count();
+                    ImGui::Text("Time: %.2f sec, Operations: %d", elapsed_ms / 1000.0, operations);
+                }
+            }
+            ImGui::SeparatorText("Radix Sort");
+            ImGui::Checkbox("Do##2", &show_radixsort_window);
+            if (radix_future.valid())
+            {
+                auto status = radix_future.wait_for(std::chrono::seconds(0));
+                int operations = radix_operations.load();
+
+                if (status == std::future_status::ready)
+                {
+                    double time_seconds = radix_sort_time_ms.load() / 1000.0;
+                    ImGui::Text("Time: %.2f sec, Operations: %d", time_seconds, operations);
+                }
+                else
+                {
+                    auto current_time = std::chrono::high_resolution_clock::now();
+                    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - radix_start_time).count();
+                    ImGui::Text("Time: %.2f sec, Operations: %d", elapsed_ms / 1000.0, operations);
+                }
+            }
+            ImGui::SeparatorText("Bogo Sort");
+            ImGui::Checkbox("Do##3", &show_bogosort_window);
+            if (bogo_future.valid())
+            {
+                 auto status = bogo_future.wait_for(std::chrono::seconds(0));
+                 int iterations = bogo_iterations.load();
+
+                if (status == std::future_status::ready)
+                {
+                    double time_seconds = bogo_sort_time_ms.load() / 1000.0;
+                    ImGui::Text("Time: %.2f sec, Iterations: %d", time_seconds, iterations);
+                }
+                else
+                {
+                    auto current_time = std::chrono::high_resolution_clock::now();
+                    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - bogo_start_time).count();
+                    ImGui::Text("Time: %.2f sec, Iterations: %d", elapsed_ms / 1000.0, iterations);
+                }
+            }
+            ImGui::Separator();
+            ImGui::Checkbox("Render charts", &render_charts);
 
         #ifdef DEVELOPER_OPTIONS
             ImGui::Checkbox("ImGui Demo Window", &show_demo_window);
             ImGui::SameLine();
             ImGui::Checkbox("Implot Demo Window", &show_impot_demo_window);
             //ImGui::Text(debug_array(numbers, number_of_numbers).c_str());
+        #endif
+        #ifdef SHOW_FPS
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         #endif
 
@@ -781,11 +1038,20 @@ int main(int, char**)
                 ImVec2 pivot_window_size = ImVec2(ImGui::GetWindowSize().x - 15, ImGui::GetWindowSize().y - 35);
                 if (ImPlot::BeginPlot("My Plot", pivot_window_size)) {
                     if (show_shellsort_window)
-                        ImPlot::PlotBars("Shellsort", numbers, number_of_numbers, 1);
+                    {
+                        auto downsampled = downsampleArray(shell_numbers, number_of_numbers);
+                        ImPlot::PlotBars("Shellsort", downsampled.data(), downsampled.size());
+                    }
                     if (show_radixsort_window)
-                        ImPlot::PlotBars("Radix Sort", numbers, number_of_numbers, 1);
+                    {
+                        auto downsampled = downsampleArray(radix_numbers, number_of_numbers);
+                        ImPlot::PlotBars("Radix Sort", downsampled.data(), downsampled.size());
+                    }
                     if (show_bogosort_window)
-                        ImPlot::PlotBars("Bogosort", numbers, number_of_numbers, 1);
+                    {
+                        auto downsampled = downsampleArray(bogo_numbers, number_of_numbers);
+                        ImPlot::PlotBars("Bogosort", downsampled.data(), downsampled.size());
+                    }
                     ImPlot::EndPlot();
                 }
             }
@@ -841,8 +1107,9 @@ int main(int, char**)
     SDL_DestroyWindow(window);
     SDL_Quit();
 
-    if (bogo_future.valid()) {
-        bogo_future.wait();
-    }
+    delete[] numbers;
+    delete[] shell_numbers;
+    delete[] radix_numbers;
+    delete[] bogo_numbers;
     return 0;
 }

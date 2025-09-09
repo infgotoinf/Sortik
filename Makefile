@@ -160,8 +160,6 @@ $(BUILD_DIR)/sortik/$(EXE): $(OBJS)
 
 mkdir:
 	mkdir -p $(BUILD_DIR)
-	mkdir -p $(BUILD_DIR)/sortik
-    cp vulkan1.dll $(BUILD_DIR)/sortik
 
 clean:
 	rm -rf $(BUILD_DIR)

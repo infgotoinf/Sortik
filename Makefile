@@ -45,6 +45,8 @@
 # After building a release I compress it via UPX https://github.com/upx/upx
 #
 #----------------------------------------------------------------------------------
+#
+# vulkan1.dll
 
 CXX  = g++
 
@@ -149,15 +151,17 @@ $(BUILD_DIR)/$(build)_%.o:$(FREETYPE_DIR2)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 
-all: mkdir $(BUILD_DIR)/$(EXE)
+all: mkdir $(BUILD_DIR)/sortik/$(EXE)
 	@echo $(build) build complete
 
-$(BUILD_DIR)/$(EXE): $(OBJS)
+$(BUILD_DIR)/sortik/$(EXE): $(OBJS)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 
 mkdir:
 	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)/sortik
+    cp vulkan1.dll $(BUILD_DIR)/sortik
 
 clean:
 	rm -rf $(BUILD_DIR)

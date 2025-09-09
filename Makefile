@@ -151,10 +151,10 @@ $(BUILD_DIR)/$(build)_%.o:$(FREETYPE_DIR2)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 
-all: mkdir $(BUILD_DIR)/sortik/$(EXE)
+all: mkdir $(BUILD_DIR)/$(EXE)
 	@echo $(build) build complete
 
-$(BUILD_DIR)/sortik/$(EXE): $(OBJS)
+$(BUILD_DIR)/$(EXE): $(OBJS)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 

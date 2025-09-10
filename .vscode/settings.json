@@ -71,6 +71,7 @@
         "regex": "cpp",
         "fstream": "cpp",
         "queue": "cpp",
-        "future": "cpp"
+        "future": "cpp",
+        "proggyvector.h": "c"
     }
 }

@@ -1,0 +1,14 @@
+CMAKE=cmake
+SOURCE_DIR=$(abspath $(shell pwd))
+BUILD_DIR=$(SOURCE_DIR)/build
+
+all: build
+
+prepare:
+    $(CMAKE) -S $(SOURCE_DIR) -B $(BUILD_DIR)
+
+build: prepare
+    make -S $(BUILD_DIR)
+
+clean: $(BUILD_DIR)
+    rm -r $(BUILD_DIR)

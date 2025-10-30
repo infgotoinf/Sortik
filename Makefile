@@ -147,6 +147,8 @@ all: mkdir $(BUILD_DIR)/$(EXE)
 $(BUILD_DIR)/$(EXE): $(OBJS)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
+cmake:
+    $(CMAKE) -S . -B $(CBUILD_DIR)
 
 mkdir:
 	mkdir -p $(BUILD_DIR)
